@@ -20,6 +20,7 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      # Logs in using the specific actor triggering the workflow
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         if: github.event_name != 'pull_request'
@@ -28,16 +29,21 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # Grabs the full Org/Repo string (e.g., MyCommunity/Smart-Portfolio) and lowercases it
+      - name: Format Organization and Repo Name
+        run: |
+          echo "IMAGE_PATH=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
+
       - name: Build and Push Docker Image
         uses: docker/build-push-action@v5
         with:
           context: .
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ghcr.io/${{ github.repository_owner }}/smart-portfolio-backend:latest
+          # Tags the image directly to the Organization's registry
+          tags: ghcr.io/${{ env.IMAGE_PATH }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  # --- NEW: Render Continuous Deployment Job ---
   deploy:
     needs: build-and-publish
     if: github.event_name != 'pull_request'
@@ -47,4 +53,4 @@ jobs:
       - name: Trigger Render Deployment
         run: |
           echo "Triggering Render to pull the latest image..."
-          curl -X POST -d "" ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+          curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
