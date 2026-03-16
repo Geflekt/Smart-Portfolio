@@ -37,9 +37,11 @@ jobs:
       - name: Build and Push Docker Image
         uses: docker/build-push-action@v5
         with:
-          context: .
+          # Tell Docker to run inside your specific folder
+          context: ./smart-portfolio-backend
+          # Explicitly point to the Dockerfile inside that folder
+          file: ./smart-portfolio-backend/Dockerfile
           push: ${{ github.event_name != 'pull_request' }}
-          # Tags the image directly to the Organization's registry
           tags: ghcr.io/${{ env.IMAGE_PATH }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
