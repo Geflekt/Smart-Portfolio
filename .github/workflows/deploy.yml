@@ -38,15 +38,14 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  # ---------------------------------------------------
-  # JOB 2: Tell Render to Pull the New Image
-  # ---------------------------------------------------
-  deploy-to-render:
-    needs: build-and-push # Ensures this only runs if the build succeeds
-    runs-on: ubuntu-latest
+  deploy:
+  needs: build-and-publish
+  if: github.event_name != 'pull_request'
+  runs-on: ubuntu-latest
 
-    steps:
-      - name: Trigger Render Deploy Hook
-        run: |
-          echo "Build successful! Notifying Render to pull the latest image..."
-          curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}"
+  steps:
+    - name: Trigger Render Deployment
+      run: |
+        echo "Triggering Render to pull the latest image..."
+        # Double quotes around the secret are CRITICAL to prevent malformed URL errors
+        curl -f -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
