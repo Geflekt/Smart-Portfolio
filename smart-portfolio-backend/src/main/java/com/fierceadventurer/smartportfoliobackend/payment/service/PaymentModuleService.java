@@ -1,11 +1,18 @@
 package com.fierceadventurer.smartportfoliobackend.payment.service;
 
+import com.razorpay.Order;
+import com.razorpay.RazorpayClient;
+import com.razorpay.RazorpayException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.json.JSONObject;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 import static org.springframework.web.servlet.function.RequestPredicates.param;
@@ -16,6 +23,36 @@ import static org.springframework.web.servlet.function.RequestPredicates.param;
 public class PaymentModuleService {
 
     private final JdbcClient jdbcClient;
+
+    @Value("${RAZORPAY_KEY_ID}")
+    private String razorpayKeyId;
+    @Value("${RAZORPAY_KEY_SECRET}")
+    private String razorpayKeySecret;
+
+    public Map<String , Object> createRazorpayOrder(double amount , String currency) throws RazorpayException{
+        log.info("Initiating Razorpay Order creation for amount: {}", amount);
+
+        RazorpayClient razorpay = new RazorpayClient(razorpayKeyId , razorpayKeySecret);
+        JSONObject orderRequest = new JSONObject();
+
+        // Razorpay strictly requires the amount in paise
+        orderRequest.put("amount", (int)(amount * 100));
+        orderRequest.put("currency", currency);
+        orderRequest.put("receipt","txn_" + UUID.randomUUID().toString().substring(0 , 8));
+
+        Order order = razorpay.orders.create(orderRequest);
+
+        // construct the exact JSON your react frontend is waiting for
+        Map<String , Object> response = new HashMap<>();
+        response.put("id", order.get("id"));
+        response.put("amount", order.get("amount"));
+        response.put("currency", order.get("currency"));
+
+        String orderId = order.get("id");
+
+        log.info("Successfully created Razorpay Order ID: {}", orderId);
+        return response;
+    }
 
     @Transactional
     public void processSuccessfulSponsorship(String razorpayEventId, String paymentId , String name , String email ,
