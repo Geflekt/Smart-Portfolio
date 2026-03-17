@@ -38,8 +38,12 @@ public class RateLimitInterceptor implements HandlerInterceptor {
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response , Object handler) throws Exception{
-       // extract client ip
-       // "X-forwarded-for" is curial for frontend hosted on cloud
+        //        fixing cors issue
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+            return true;
+        }
+        // extract client ip
+        // "X-forwarded-for" is curial for frontend hosted on cloud
        String ip = request.getHeader("X-Forwarded-For");
        if(ip == null || ip.isEmpty()){
            ip = request.getRemoteAddr();
