@@ -72,6 +72,7 @@ public class PaymentModuleService {
 
         // immediately grabbing UUID postgres generated
         UUID generatedSponsorId = jdbcClient.sql(insertSponsorSql)
+                .param(UUID.randomUUID())
                 .param(name)
                 .param(email)
                 .param(amount)
@@ -93,6 +94,7 @@ public class PaymentModuleService {
                 """;
 
         jdbcClient.sql(insertOutboxSql)
+                .param(UUID.randomUUID())
                 .param(generatedSponsorId.toString())
                 .param(payloadJson)
                 .param(razorpayEventId)
