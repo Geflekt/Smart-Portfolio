@@ -24,9 +24,11 @@ public class PaymentOrderController {
     @PostMapping("/create-order")
     public ResponseEntity<?> createOrder(@RequestBody Map<String, Object> data){
         try{
+            // amount requested by frontend
             double amount = Double.parseDouble(data.get("amount").toString());
             String currency = data.getOrDefault("currency", "INR").toString();
 
+            // calling service
             Map<String, Object> orderDetails = paymentModuleService.createRazorpayOrder(amount , currency);
             return ResponseEntity.ok(orderDetails);
 
