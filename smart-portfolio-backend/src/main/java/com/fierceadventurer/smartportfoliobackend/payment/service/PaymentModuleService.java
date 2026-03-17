@@ -65,7 +65,7 @@ public class PaymentModuleService {
 
         // save to sponsor table
         String insertSponsorSql = """
-                INSERT INTO sponsors (id , sponsor_name, sponsor_email, amount , currency, status , razorpay_payment_id)
+                INSERT INTO sponsors (id , sponsor_name, email, amount , currency, status , razorpay_payment_id)
                 VALUES(?, ?, ?, ?, ?, 'SUCCESS', ?)
                 RETURNING id
                 """;
