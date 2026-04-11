@@ -70,6 +70,7 @@ portfolio:
 
 server:
   port: 8080
+  forward-headers-strategy: framework
 
 razorpay:
   key-id: ${RAZORPAY_KEY_ID}
