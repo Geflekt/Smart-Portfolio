@@ -20,8 +20,8 @@ public class OutboxPollingWorker {
     private final JdbcClient jdbcClient;
     private final ApplicationEventPublisher eventPublisher;
 
-    // fixedDelay = 10000 ensures it waits 10 seconds AFTER the last run finishes
-    @Scheduled(fixedDelay = 10000)
+    // fixedDelay = 600000 ensures it waits 10 minutes AFTER the last run finishes
+    @Scheduled(fixedDelay = 600000)
     public void pollAndProcessOutboxEvents(){
 
         //fetch up to 50 unproccessed events

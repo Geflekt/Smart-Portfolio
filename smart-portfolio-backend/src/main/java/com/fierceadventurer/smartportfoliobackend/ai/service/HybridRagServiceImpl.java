@@ -52,7 +52,9 @@ public class HybridRagServiceImpl implements HybridRagService{
         var cacheAnswer = cacheRepository.findCacheResponse(doubleEmbedding);
         if(cacheAnswer.isPresent()){
             log.info("Semantic cache HIT! Streaming instant response.");
-            return Flux.just(cacheAnswer.get());
+            String[] words = cacheAnswer.get().split("(?<=\\s)");
+            return Flux.fromArray(words)
+                    .delayElements(java.time.Duration.ofMillis(30));
         }
 
         log.info("Semantic cache MISS. Querying pgvector and streaming from Groq...");
