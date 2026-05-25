@@ -1,5 +1,6 @@
 package com.fierceadventurer.smartportfoliobackend.payment.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.razorpay.Order;
 import com.razorpay.RazorpayClient;
 import com.razorpay.RazorpayException;
@@ -15,18 +16,17 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-import static org.springframework.web.servlet.function.RequestPredicates.param;
-
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class PaymentModuleService {
 
     private final JdbcClient jdbcClient;
+    private final ObjectMapper objectMapper;
 
-    @Value("${RAZORPAY_KEY_ID}")
+    @Value("${razorpay.key-id}")
     private String razorpayKeyId;
-    @Value("${RAZORPAY_KEY_SECRET}")
+    @Value("${razorpay.key-secret}")
     private String razorpayKeySecret;
 
     public Map<String , Object> createRazorpayOrder(double amount , String currency) throws RazorpayException{
@@ -59,8 +59,6 @@ public class PaymentModuleService {
                                              double amount, String currency){
 
 
-        UUID eventId = UUID.randomUUID();
-
         log.info("Processing verified Razorpay payment. Initiating Outbox transaction for Sponsor: {}", email);
 
         // save to sponsor table
@@ -81,25 +79,32 @@ public class PaymentModuleService {
                 .query(UUID.class)
                 .single();
 
-        // building json payload
-        String payloadJson = String.format(
-                "{\"sponsorName\":\"%s\", \"amount\":%f, \"currency\":\"%s\", \"email\":\"%s\"}",
-                name, amount , currency , email
-        );
+        try {
+            // building json payload safely
+            Map<String, Object> payloadMap = new HashMap<>();
+            payloadMap.put("sponsorName", name);
+            payloadMap.put("amount", amount);
+            payloadMap.put("currency", currency);
+            payloadMap.put("email", email);
+            String payloadJson = objectMapper.writeValueAsString(payloadMap);
 
-        // save to outbox events table (JSONB cast is critical for Postgres
-        String insertOutboxSql = """
-                Insert INTO outbox_events(id , aggregate_type, aggregate_id, event_type, payload, is_Processed, event_id)
-                VALUES (?, 'SPONSOR', ?, 'SPONSOR_CREATED', ?::jsonb, 'false', ?)
+            // save to outbox events table (JSONB cast is critical for Postgres)
+            String insertOutboxSql = """
+                INSERT INTO outbox_events(id , aggregate_type, aggregate_id, event_type, payload, is_processed, event_id)
+                VALUES (?, 'SPONSOR', ?, 'SPONSOR_CREATED', ?::jsonb, false, ?)
                 """;
 
-        jdbcClient.sql(insertOutboxSql)
-                .param(UUID.randomUUID())
-                .param(generatedSponsorId.toString())
-                .param(payloadJson)
-                .param(razorpayEventId)
-                .update();
+            jdbcClient.sql(insertOutboxSql)
+                    .param(UUID.randomUUID())
+                    .param(generatedSponsorId.toString())
+                    .param(payloadJson)
+                    .param(razorpayEventId)
+                    .update();
 
-        log.info("Successfully committed Sponsor and OutboxEvent to PostgreSQL.");
+            log.info("Successfully committed Sponsor and OutboxEvent to PostgreSQL.");
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            log.error("Failed to serialize sponsor payload for outbox", e);
+            throw new RuntimeException("Internal error processing sponsorship data");
+        }
     }
 }
