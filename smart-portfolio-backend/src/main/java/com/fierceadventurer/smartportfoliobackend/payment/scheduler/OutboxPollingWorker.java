@@ -21,7 +21,7 @@ public class OutboxPollingWorker {
     private final ApplicationEventPublisher eventPublisher;
 
     // fixedDelay = 600000 ensures it waits 10 minutes AFTER the last run finishes
-    @Scheduled(fixedDelay = 600000)
+    @Scheduled(fixedDelay = 600000000)
     public void pollAndProcessOutboxEvents(){
 
         //fetch up to 50 unproccessed events
