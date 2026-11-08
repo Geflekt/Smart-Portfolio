@@ -72,7 +72,7 @@ public class ProfileServiceImpl implements ProfileService {
 
     @Override
     public Map<String, String> getDynamicBioFromVectorStore() {
-        log.info("Processing dynamic bio request with LRU cache pool & Groq Llama-3.3 vector synthesis");
+        log.info("Processing dynamic bio request with LRU cache pool & Groq LLM vector synthesis");
 
         List<BioCache> cachedBios = bioCacheRepository.findAllByOrderByCreatedAtAsc();
 
@@ -89,7 +89,7 @@ public class ProfileServiceImpl implements ProfileService {
             // Fire and forget async generation of the next bio (n-1) to keep the LRU pool fresh
             CompletableFuture.runAsync(() -> {
                 try {
-                    log.info("Kicking off background vector search and Groq Llama-3.3 bio synthesis...");
+                    log.info("Kicking off background vector search and Groq LLM bio synthesis...");
                     synthesizeAndCacheNextBio();
                 } catch (Exception e) {
                     log.error("Asynchronous bio generation encountered an error: {}", e.getMessage(), e);
@@ -194,7 +194,7 @@ public class ProfileServiceImpl implements ProfileService {
                 log.info("Successfully generated and saved new dynamic bio (n-1) to LRU cache: {}", dynamicBio);
             }
         } catch (Exception e) {
-            log.error("Failed to generate dynamic bio via Groq Llama-3.3: {}", e.getMessage());
+            log.error("Failed to generate dynamic bio via Groq LLM: {}", e.getMessage());
         }
 
         return dynamicBio;

@@ -69,7 +69,7 @@ public class DataIngestionServiceImpl implements DataIngestionService {
         String candidateName = "Ayush Tripathi";
 
         try {
-            log.info("Sending resume text to LLM (Groq Llama-3) for automated bio & experience extraction...");
+            log.info("Sending resume text to LLM (Groq) for automated bio & experience extraction...");
 
             String prompt = """
                     You are an expert resume parser for a software engineer portfolio.
