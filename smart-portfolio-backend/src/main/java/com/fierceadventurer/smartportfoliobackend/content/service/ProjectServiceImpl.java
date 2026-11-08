@@ -11,6 +11,7 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -24,7 +25,7 @@ public class ProjectServiceImpl implements ProjectService {
     @Override
     @Cacheable(value = "portfolio_projects")
     public List<ProjectResponse> getAllProjects() {
-        log.info("Fetching all projects from NeonDB (cache miss");
+        log.info("Fetching all projects from NeonDB (cache miss)");
 
         return projectRepository.findAll().stream()
                 .map(projectMapper::toResponse)
@@ -40,5 +41,16 @@ public class ProjectServiceImpl implements ProjectService {
         var savedEntity = projectRepository.save(entity);
 
         return projectMapper.toResponse(savedEntity);
+    }
+
+    @Override
+    @CacheEvict(value = "portfolio_projects", allEntries = true)
+    public boolean deleteProject(UUID id) {
+        log.info("Deleting project ID: {}", id);
+        if (projectRepository.existsById(id)) {
+            projectRepository.deleteById(id);
+            return true;
+        }
+        return false;
     }
 }

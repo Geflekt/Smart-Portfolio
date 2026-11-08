@@ -7,6 +7,7 @@ import com.razorpay.RazorpayException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.json.JSONObject;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
@@ -29,10 +30,23 @@ public class PaymentModuleService {
     @Value("${razorpay.key-secret}")
     private String razorpayKeySecret;
 
+    private volatile RazorpayClient razorpayClient;
+
+    private RazorpayClient getRazorpayClient() throws RazorpayException {
+        if (razorpayClient == null) {
+            synchronized (this) {
+                if (razorpayClient == null) {
+                    razorpayClient = new RazorpayClient(razorpayKeyId, razorpayKeySecret);
+                }
+            }
+        }
+        return razorpayClient;
+    }
+
     public Map<String , Object> createRazorpayOrder(double amount , String currency) throws RazorpayException{
         log.info("Initiating Razorpay Order creation for amount: {}", amount);
 
-        RazorpayClient razorpay = new RazorpayClient(razorpayKeyId , razorpayKeySecret);
+        RazorpayClient razorpay = getRazorpayClient();
         JSONObject orderRequest = new JSONObject();
 
         // Razorpay strictly requires the amount in paise
@@ -55,6 +69,7 @@ public class PaymentModuleService {
     }
 
     @Transactional
+    @CacheEvict(value = "portfolio_sponsors", allEntries = true)
     public void processSuccessfulSponsorship(String razorpayEventId, String paymentId , String name , String email ,
                                              double amount, String currency){
 

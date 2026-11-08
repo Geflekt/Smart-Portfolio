@@ -24,16 +24,19 @@ public class HybridRagServiceImpl implements HybridRagService{
     private final VectorStore vectorStore;
     private final EmbeddingModel embeddingModel;
     private final ChatClient chatClient;
+    private final com.fierceadventurer.smartportfoliobackend.content.service.ProfileService profileService;
 
     public HybridRagServiceImpl(
             SemanticCacheRepository cacheRepository,
             VectorStore vectorStore,
             EmbeddingModel embeddingModel,
-            ChatClient.Builder chatClientBuilder) {
+            ChatClient.Builder chatClientBuilder,
+            com.fierceadventurer.smartportfoliobackend.content.service.ProfileService profileService) {
         this.cacheRepository = cacheRepository;
         this.vectorStore = vectorStore;
         this.embeddingModel = embeddingModel;
         this.chatClient = chatClientBuilder.build();
+        this.profileService = profileService;
     }
 
     @Override
@@ -68,14 +71,22 @@ public class HybridRagServiceImpl implements HybridRagService{
                 .map(Document::getText).
                 collect(Collectors.joining("\n\n"));
 
-        String systemPrompt = """
-                You are the personal AI assistant for Ayush Tripathi's professional portfolio.
-                Use ONLY the following context about his skills, projects, and experience to answer the visitor's question.
+        var profile = profileService.getProfile();
+        String systemPrompt = String.format("""
+                You are the personal AI assistant for %s's professional portfolio.
+                About: %s
+                Role: %s | Education: %s
+                Use ONLY the following context about skills, projects, and experience to answer the visitor's question.
                 If the answer is not in the context, politely state that you don't have that specific information and encourage them to use the contact form.
                 
                 CONTEXT:
                 {context}
-                """;
+                """,
+                profile.name() != null ? profile.name() : "Ayush Tripathi",
+                profile.bio() != null ? profile.bio() : "",
+                profile.role() != null ? profile.role() : "Backend Developer",
+                profile.education() != null ? profile.education() : ""
+        );
 
         StringBuilder fullResponseBuilder = new StringBuilder();
 

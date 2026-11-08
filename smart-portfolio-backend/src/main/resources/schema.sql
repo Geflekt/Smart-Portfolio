@@ -56,4 +56,54 @@ CREATE TABLE IF NOT EXISTS outbox_events (
     is_processed BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     event_id VARCHAR(255) UNIQUE
-)
+);
+
+CREATE TABLE IF NOT EXISTS profile (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(255) NOT NULL,
+    role VARCHAR(255),
+    education VARCHAR(255),
+    bio TEXT,
+    email VARCHAR(255),
+    phone VARCHAR(50),
+    github_url VARCHAR(255),
+    linkedin_url VARCHAR(255),
+    leetcode_url VARCHAR(255),
+    codeforces_url VARCHAR(255),
+    resume_url VARCHAR(500),
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS experiences (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    role VARCHAR(255) NOT NULL,
+    company VARCHAR(255) NOT NULL,
+    period VARCHAR(100),
+    description TEXT,
+    tech_stack VARCHAR(255),
+    sort_order INT DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+INSERT INTO profile (name, role, education, bio, email, phone, github_url, linkedin_url, leetcode_url, codeforces_url, resume_url)
+SELECT 'Ayush Tripathi',
+       'Backend Developer',
+       'B.Tech in CSE @ Gurukul Kangri Deemed to be University',
+       'Experienced in building scalable backend systems and event-driven architectures. My core stack includes Java, Spring Boot, Microservices, Kafka, and Docker.' || E'\n\n' || 'Currently seeking hands-on internship opportunities to engineer robust solutions.',
+       'ayush.tripathi0509@gmail.com',
+       '+91 8178410657',
+       'https://github.com/fierce-adventurer',
+       'https://www.linkedin.com/in/ayush-tripathi-89265923a/',
+       'https://leetcode.com/u/ayushtripathi2005/',
+       'https://codeforces.com/profile/fierce-adventurer',
+       'https://drive.google.com/file/d/1mkDrr9xYSplGzt3btQkSZnR-FzJvXJgq/view?usp=drive_link'
+WHERE NOT EXISTS (SELECT 1 FROM profile LIMIT 1);
+
+INSERT INTO experiences (role, company, period, description, tech_stack, sort_order)
+SELECT 'Virtual Software Engineering Intern',
+       'IIT Ropar',
+       'Jan 2026',
+       'Participated in an intensive 10-week virtual internship focusing on full-stack web development.',
+       'MongoDB, Express.js, React, Node.js',
+       1
+WHERE NOT EXISTS (SELECT 1 FROM experiences LIMIT 1);

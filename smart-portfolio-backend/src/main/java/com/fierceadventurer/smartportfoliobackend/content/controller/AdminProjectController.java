@@ -31,10 +31,8 @@ public class AdminProjectController {
     public ResponseEntity<String> deleteProject(@PathVariable UUID id) {
         log.info("Admin deleting project ID: {}", id);
 
-        String sql = "DELETE FROM projects WHERE id = ?";
-        int rowsAffected = jdbcClient.sql(sql).param(id).update();
-
-        if (rowsAffected == 0) {
+        boolean deleted = projectService.deleteProject(id);
+        if (!deleted) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Project not found.");
         }
         return ResponseEntity.ok("Project successfully deleted.");

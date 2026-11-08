@@ -10,10 +10,10 @@ spring:
     driver-class-name: org.postgresql.Driver
 
     hikari:
-      maximum-pool-size: 10
+      maximum-pool-size: 5
       minimum-idle: 0
-      idle-timeout: 30000
-      max-lifetime: 120000
+      idle-timeout: 10000
+      max-lifetime: 60000
       connection-timeout: 30000
 
 
@@ -61,7 +61,7 @@ spring:
         dimensions: 768
   cache:
     type: caffeine
-    cache-names: portfolio_projects, ai_responses
+    cache-names: portfolio_projects, ai_responses, portfolio_profile, portfolio_experiences, portfolio_sponsors
     caffeine:
       spec: maximumSize=100,expireAfterWrite=24h
 
