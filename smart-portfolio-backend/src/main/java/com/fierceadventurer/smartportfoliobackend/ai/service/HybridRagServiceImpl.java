@@ -99,6 +99,11 @@ public class HybridRagServiceImpl implements HybridRagService{
                 .doOnComplete(()->{
                     log.info("Stream complete. Saving full response to cache.");
                     cacheRepository.saveToCache(question, doubleEmbedding, fullResponseBuilder.toString());
+                })
+                .onErrorResume(e -> {
+                    log.error("Groq chat streaming error encountered: {}", e.getMessage(), e);
+                    String fallback = "I apologize, but my AI inference engine is currently busy or re-initializing. Please feel free to reach out directly to Ayush at ayush.tripathi0509@gmail.com or via LinkedIn!";
+                    return Flux.just(fallback);
                 });
     }
 }

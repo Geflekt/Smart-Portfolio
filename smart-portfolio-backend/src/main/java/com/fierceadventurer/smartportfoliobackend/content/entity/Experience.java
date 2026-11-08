@@ -29,6 +29,12 @@ public class Experience {
     private String company;
 
     private String period;
+ 
+    @Column(name = "start_date")
+    private String startDate;
+
+    @Column(name = "end_date")
+    private String endDate;
 
     @Column(columnDefinition = "TEXT")
     private String description;

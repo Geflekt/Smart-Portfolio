@@ -43,7 +43,7 @@ spring:
         base-url: https://api.groq.com/openai
         api-key: ${GROQ_API_KEY}
         options:
-          model: llama-3.3-70b-versatile
+          model: ${GROQ_MODEL:llama-3.3-70b-versatile}
           temperature: 0.3
 
       embedding:

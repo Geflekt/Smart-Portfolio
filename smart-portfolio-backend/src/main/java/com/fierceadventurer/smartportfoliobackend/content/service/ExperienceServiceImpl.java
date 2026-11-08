@@ -38,7 +38,22 @@ public class ExperienceServiceImpl implements ExperienceService {
     @CacheEvict(value = "portfolio_experiences", allEntries = true)
     public ExperienceResponse createExperience(ExperienceRequest request) {
         log.info("Creating new experience: {} at {}", request.role(), request.company());
+
+        if (request.startDate() != null && request.endDate() != null
+                && !request.startDate().isBlank() && !request.endDate().isBlank()
+                && !request.endDate().equalsIgnoreCase("Present")) {
+            if (request.startDate().compareTo(request.endDate()) > 0) {
+                throw new IllegalArgumentException("Start date cannot be later than end date");
+            }
+        }
+
         Experience entity = experienceMapper.toEntity(request);
+
+        if ((entity.getPeriod() == null || entity.getPeriod().isBlank()) && request.startDate() != null && !request.startDate().isBlank()) {
+            String end = (request.endDate() != null && !request.endDate().isBlank()) ? request.endDate() : "Present";
+            entity.setPeriod(request.startDate() + " - " + end);
+        }
+
         Experience saved = experienceRepository.save(entity);
         return experienceMapper.toResponse(saved);
     }

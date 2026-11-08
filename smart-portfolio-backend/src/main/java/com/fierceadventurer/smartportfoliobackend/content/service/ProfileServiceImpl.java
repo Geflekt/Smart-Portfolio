@@ -1,25 +1,18 @@
 package com.fierceadventurer.smartportfoliobackend.content.service;
 
-import com.fierceadventurer.smartportfoliobackend.content.dto.ProfileRequest;
 import com.fierceadventurer.smartportfoliobackend.content.dto.ProfileResponse;
 import com.fierceadventurer.smartportfoliobackend.content.entity.BioCache;
-import com.fierceadventurer.smartportfoliobackend.content.entity.Profile;
-import com.fierceadventurer.smartportfoliobackend.content.mapper.ProfileMapper;
 import com.fierceadventurer.smartportfoliobackend.content.repository.BioCacheRepository;
-import com.fierceadventurer.smartportfoliobackend.content.repository.ProfileRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
-import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -30,224 +23,153 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ProfileServiceImpl implements ProfileService {
 
-    private final ProfileRepository profileRepository;
     private final BioCacheRepository bioCacheRepository;
-    private final ProfileMapper profileMapper;
     private final ChatClient.Builder chatClientBuilder;
     private final VectorStore vectorStore;
     private final ProjectService projectService;
     private final ExperienceService experienceService;
 
+    private static final String DEFAULT_NAME = "Ayush Tripathi";
+    private static final String DEFAULT_ROLE = "Backend Developer";
+    private static final String DEFAULT_EDUCATION = "B.Tech in CSE @ Gurukul Kangri Deemed to be University";
+    private static final String DEFAULT_BIO = "Backend Engineer focused on scalable architectures, Java 21, Spring Boot, distributed microservices, and Apache Kafka.";
+    private static final String DEFAULT_EMAIL = "ayush.tripathi0509@gmail.com";
+    private static final String DEFAULT_PHONE = "+91 8178410657";
+    private static final String DEFAULT_GITHUB = "https://github.com/fierce-adventurer";
+    private static final String DEFAULT_LINKEDIN = "https://www.linkedin.com/in/ayush-tripathi-89265923a/";
+    private static final String DEFAULT_LEETCODE = "https://leetcode.com/u/ayushtripathi2005/";
+    private static final String DEFAULT_CODEFORCES = "https://codeforces.com/profile/fierce-adventurer";
+    private static final String DEFAULT_RESUME = "https://drive.google.com/file/d/1mkDrr9xYSplGzt3btQkSZnR-FzJvXJgq/view?usp=drive_link";
+
     @Override
     @Cacheable(value = "portfolio_profile")
     public ProfileResponse getProfile() {
-        log.info("Fetching profile from database (cache miss)");
-        Profile profile = profileRepository.findFirstByOrderByIdAsc()
-                .orElseGet(() -> {
-                    Profile defaultProfile = Profile.builder()
-                            .name("Ayush Tripathi")
-                            .role("Backend Developer")
-                            .education("B.Tech in CSE @ Gurukul Kangri Deemed to be University")
-                            .bio(null)
-                            .email("ayush.tripathi0509@gmail.com")
-                            .phone("+91 8178410657")
-                            .githubUrl("https://github.com/fierce-adventurer")
-                            .linkedinUrl("https://www.linkedin.com/in/ayush-tripathi-89265923a/")
-                            .leetcodeUrl("https://leetcode.com/u/ayushtripathi2005/")
-                            .codeforcesUrl("https://codeforces.com/profile/fierce-adventurer")
-                            .resumeUrl("https://drive.google.com/file/d/1mkDrr9xYSplGzt3btQkSZnR-FzJvXJgq/view?usp=drive_link")
-                            .build();
-                    return profileRepository.save(defaultProfile);
-                });
-
-        if (profile.getBio() == null || profile.getBio().isBlank()) {
-            return generateBioWithAi();
-        }
-
-        return profileMapper.toResponse(profile);
+        log.info("Fetching profile details (cache miss)");
+        String bio = getLatestBioFromCache();
+        return new ProfileResponse(
+                null,
+                DEFAULT_NAME,
+                DEFAULT_ROLE,
+                DEFAULT_EDUCATION,
+                bio,
+                DEFAULT_EMAIL,
+                DEFAULT_PHONE,
+                DEFAULT_GITHUB,
+                DEFAULT_LINKEDIN,
+                DEFAULT_LEETCODE,
+                DEFAULT_CODEFORCES,
+                DEFAULT_RESUME
+        );
     }
 
-    @Override
-    @Transactional
-    @CacheEvict(value = "portfolio_profile", allEntries = true)
-    public ProfileResponse updateProfile(ProfileRequest request) {
-        log.info("Updating portfolio profile");
-        Profile profile = profileRepository.findFirstByOrderByIdAsc()
-                .orElseGet(() -> profileMapper.toEntity(request));
-
-        profileMapper.updateEntityFromRequest(request, profile);
-        Profile saved = profileRepository.save(profile);
-
-        if (saved.getBio() != null && !saved.getBio().isBlank()) {
-            saveBioToCacheAndEvictLru(saved.getBio(), saved);
+    private String getLatestBioFromCache() {
+        List<BioCache> cached = bioCacheRepository.findAllByOrderByLastAccessedAtAsc();
+        if (!cached.isEmpty()) {
+            return cached.get(cached.size() - 1).getBio();
         }
-
-        return profileMapper.toResponse(saved);
-    }
-
-    @Override
-    @Transactional
-    @CacheEvict(value = "portfolio_profile", allEntries = true)
-    public ProfileResponse generateBioWithAi() {
-        log.info("Generating bio dynamically with Groq LLM (Llama-3.3-70b-versatile)...");
-        Profile profile = profileRepository.findFirstByOrderByIdAsc()
-                .orElseGet(() -> Profile.builder()
-                        .name("Ayush Tripathi")
-                        .role("Backend Developer")
-                        .build());
-
-        String prompt = """
-                You are a senior technical writer crafting a high-impact terminal portfolio bio for Ayush Tripathi.
-                Role: %s
-                Education: %s
-                Technical Focus: Scalable backend engineering, Java 21, Spring Boot, Microservices, Apache Kafka, Docker, and PostgreSQL.
-                
-                Write a concise, compelling 2-3 sentence terminal bio summarizing his engineering mindset, core tech stack, and drive to build robust distributed architectures.
-                Return ONLY the raw bio text. Do NOT include greetings, quotation marks, markdown code fences, or any other commentary.
-                """.formatted(
-                        profile.getRole() != null ? profile.getRole() : "Backend Developer",
-                        profile.getEducation() != null ? profile.getEducation() : "B.Tech in CSE"
-                );
-
-        try {
-            ChatClient chatClient = chatClientBuilder.build();
-            String generatedBio = chatClient.prompt().user(prompt).call().content();
-            if (generatedBio != null && !generatedBio.isBlank()) {
-                String cleanBio = generatedBio.trim()
-                        .replaceAll("^\"|\"$", "")
-                        .replace("```", "")
-                        .trim();
-                profile.setBio(cleanBio);
-                profile = profileRepository.save(profile);
-                saveBioToCacheAndEvictLru(cleanBio, profile);
-                log.info("Successfully generated and saved new dynamic bio via LLM.");
-            }
-        } catch (Exception e) {
-            log.error("Failed to generate bio via LLM, keeping current bio", e);
-        }
-
-        return profileMapper.toResponse(profile);
+        return DEFAULT_BIO;
     }
 
     @Override
     public Map<String, String> getDynamicBioFromVectorStore() {
         log.info("Processing dynamic bio request with LRU cache pool & Groq Llama-3.3 vector synthesis");
 
-        Profile profile = profileRepository.findFirstByOrderByIdAsc()
-                .orElseGet(() -> Profile.builder()
-                        .name("Ayush Tripathi")
-                        .role("Backend Developer")
-                        .education("B.Tech in CSE @ Gurukul Kangri Deemed to be University")
-                        .build());
-
         List<BioCache> cachedBios = bioCacheRepository.findAllByOrderByCreatedAtAsc();
-        String bioToServe;
 
         if (!cachedBios.isEmpty()) {
-            // Pick n - 2 if available, else latest
-            BioCache selected;
-            if (cachedBios.size() >= 2) {
-                selected = cachedBios.get(cachedBios.size() - 2);
-            } else {
-                selected = cachedBios.get(cachedBios.size() - 1);
-            }
+            int targetIndex = Math.max(0, cachedBios.size() - 2);
+            BioCache servedBio = cachedBios.get(targetIndex);
 
-            // Update LRU access timestamp
-            selected.setLastAccessedAt(LocalDateTime.now());
-            bioCacheRepository.save(selected);
-            bioToServe = selected.getBio();
+            servedBio.setLastAccessedAt(LocalDateTime.now());
+            bioCacheRepository.save(servedBio);
 
-            // Asynchronously generate fresh bio (n - 1) via vector store + Groq Llama-3.3
-            CompletableFuture.runAsync(() -> generateAndStoreNewBio(profile));
+            log.info("Instantly served cached bio [index {} of {}]: \"{}\"",
+                    targetIndex, cachedBios.size(), servedBio.getBio());
 
-        } else {
-            // Cold start: generate synchronously, save to LRU cache, and serve
-            bioToServe = generateAndStoreNewBio(profile);
-            if (bioToServe == null || bioToServe.isBlank()) {
-                bioToServe = profile.getBio() != null && !profile.getBio().isBlank()
-                        ? profile.getBio()
-                        : "Backend engineer focused on scalable architectures, Java 21, Spring Boot, distributed microservices, and high-throughput systems with Apache Kafka.";
-                saveBioToCacheAndEvictLru(bioToServe, profile);
-            }
+            // Fire and forget async generation of the next bio (n-1) to keep the LRU pool fresh
+            CompletableFuture.runAsync(() -> {
+                try {
+                    log.info("Kicking off background vector search and Groq Llama-3.3 bio synthesis...");
+                    synthesizeAndCacheNextBio();
+                } catch (Exception e) {
+                    log.error("Asynchronous bio generation encountered an error: {}", e.getMessage(), e);
+                }
+            });
+
+            return Map.of("bio", servedBio.getBio());
         }
 
-        return Map.of(
-                "bio", bioToServe,
-                "name", profile.getName() != null ? profile.getName() : "Ayush Tripathi",
-                "role", profile.getRole() != null ? profile.getRole() : "Backend Developer",
-                "education", profile.getEducation() != null ? profile.getEducation() : "B.Tech in CSE @ Gurukul Kangri Deemed to be University"
-        );
+        // Cache miss: synthesize immediately, store in bio_cache, and return
+        log.info("Bio cache is completely empty. Synthesizing initial dynamic bio synchronously...");
+        String synthesizedBio = synthesizeAndCacheNextBio();
+
+        if (synthesizedBio != null && !synthesizedBio.isBlank()) {
+            return Map.of("bio", synthesizedBio);
+        }
+
+        return Map.of("bio", DEFAULT_BIO);
     }
 
-    private String generateAndStoreNewBio(Profile profile) {
-        log.info("Synthesizing fresh dynamic bio via vector store + Groq Llama-3.3-70b-versatile...");
-
-        // 1. Query vectorStore for tech stack, skills, recent experiences, unique achievements
-        String query = "Ayush Tripathi tech stack skills most recent experience unique achievements distributed systems Spring Boot Java Kafka Docker PostgreSQL microservices";
-        List<Document> similarDocuments = Collections.emptyList();
+    private String synthesizeAndCacheNextBio() {
+        String semanticQuery = "backend distributed systems Java Spring Boot Kafka Docker microservices architectural achievements";
+        String resumeContext = "";
         try {
-            similarDocuments = vectorStore.similaritySearch(
-                    SearchRequest.builder().query(query).topK(4).build()
+            List<Document> relevantDocs = vectorStore.similaritySearch(
+                    SearchRequest.builder().query(semanticQuery).topK(4).build()
             );
+            resumeContext = relevantDocs.stream()
+                    .map(Document::getText)
+                    .collect(Collectors.joining("\n---\n"));
+            log.info("Retrieved {} relevant knowledge chunks from vector store for bio synthesis.", relevantDocs.size());
         } catch (Exception e) {
-            log.warn("Vector store query failed or empty: {}", e.getMessage());
+            log.warn("Vector store query failed for bio synthesis: {}", e.getMessage());
         }
 
-        String resumeContext = similarDocuments.stream()
-                .map(Document::getText)
-                .collect(Collectors.joining("\n---\n"));
-
-        // 2. Query projects
         String projectsContext = "";
         try {
-            projectsContext = projectService.getAllProjects().stream()
-                    .limit(4)
-                    .map(p -> String.format("- %s: %s (Tech: %s)", p.title(), p.description(), p.techStack()))
-                    .collect(Collectors.joining("\n"));
+            var projects = projectService.getAllProjects();
+            projectsContext = projects.stream()
+                    .map(p -> p.title() + ": " + p.description() + " (Tech: " + p.techStack() + ")")
+                    .collect(Collectors.joining("; "));
         } catch (Exception e) {
-            log.warn("Could not retrieve projects for dynamic bio: {}", e.getMessage());
+            log.warn("Could not retrieve projects context for bio synthesis: {}", e.getMessage());
         }
 
-        // 3. Query experiences
         String experiencesContext = "";
         try {
-            experiencesContext = experienceService.getAllExperiences().stream()
-                    .map(e -> String.format("- %s at %s (%s): %s (Tech: %s)", e.role(), e.company(), e.period(), e.description(), e.techStack()))
-                    .collect(Collectors.joining("\n"));
+            var experiences = experienceService.getAllExperiences();
+            experiencesContext = experiences.stream()
+                    .map(exp -> exp.role() + " @ " + exp.company() + ": " + exp.description() + " (Tech: " + exp.techStack() + ")")
+                    .collect(Collectors.joining("; "));
         } catch (Exception e) {
-            log.warn("Could not retrieve experiences for dynamic bio: {}", e.getMessage());
+            log.warn("Could not retrieve experiences context for bio synthesis: {}", e.getMessage());
         }
 
-        // 4. Synthesize prompt for Groq Llama-3.3-70b-versatile
         String systemPrompt = String.format("""
-                You are an expert technical bio synthesizer for Ayush Tripathi's interactive developer portfolio terminal.
-                Synthesize a fresh, dynamic, technically precise, and punchy 2-3 sentence terminal bio summarizing his engineering profile.
-                Highlight his core tech stack (Java 21, Spring Boot, Microservices, Apache Kafka, Docker, PostgreSQL), most recent work/internship experiences, skills, and unique technical achievements.
-
-                CANDIDATE PROFILE:
-                - Name: %s
-                - Role: %s
-                - Education: %s
-
-                SEMANTIC RESUME CHUNKS (from pgvector):
+                You are a senior technical writer crafting a dynamic, high-impact terminal portfolio bio for %s.
+                Target Role: %s
+                Education: %s
+                
+                SOURCE KNOWLEDGE:
+                ---
+                Resume & Skills Data:
                 %s
-
-                DEPLOYED PROJECTS:
+                
+                Deployed Architecture Projects:
                 %s
-
-                EXPERIENCE TIMELINE:
+                
+                Work Experiences:
                 %s
-
-                CRITICAL GUIDELINES:
-                - Highlight real engineering capabilities (e.g., scalable backend systems, high-concurrency event-driven architectures, resilient distributed microservices, low-latency APIs).
-                - Highlight technical skills and unique accomplishments.
-                - Conclude with his forward-looking commitment to engineering robust backend solutions.
-                - Keep it concise, punchy, professional, and formatted for a Unix terminal.
-                - Return ONLY the raw bio text. DO NOT include quotation marks, markdown code fences, greetings, or commentary.
+                ---
+                
+                INSTRUCTIONS:
+                1. Write a punchy, technical 2-3 sentence terminal bio summarizing the candidate's core backend engineering strengths, architectural accomplishments, and key technologies (Java, Spring Boot, Microservices, Kafka, Docker).
+                2. Vary the tone and focus slightly for freshness on every load, emphasizing different strengths (e.g. distributed systems reliability, event-driven pipelines, clean API design, containerization).
+                3. Return ONLY the raw bio text. Do NOT include headings, quotes, preamble, or markdown backticks.
                 """,
-                profile.getName() != null ? profile.getName() : "Ayush Tripathi",
-                profile.getRole() != null ? profile.getRole() : "Backend Developer",
-                profile.getEducation() != null ? profile.getEducation() : "B.Tech in CSE @ Gurukul Kangri Deemed to be University",
+                DEFAULT_NAME,
+                DEFAULT_ROLE,
+                DEFAULT_EDUCATION,
                 !resumeContext.isBlank() ? resumeContext : "Experienced backend engineer specializing in Java, Spring Boot, Kafka, and Docker.",
                 !projectsContext.isBlank() ? projectsContext : "Active distributed systems and backend modules.",
                 !experiencesContext.isBlank() ? experiencesContext : "Backend development and systems engineering."
@@ -268,7 +190,7 @@ public class ProfileServiceImpl implements ProfileService {
                         .replace("```", "")
                         .trim();
 
-                saveBioToCacheAndEvictLru(dynamicBio, profile);
+                saveBioToCacheAndEvictLru(dynamicBio);
                 log.info("Successfully generated and saved new dynamic bio (n-1) to LRU cache: {}", dynamicBio);
             }
         } catch (Exception e) {
@@ -278,7 +200,7 @@ public class ProfileServiceImpl implements ProfileService {
         return dynamicBio;
     }
 
-    private synchronized void saveBioToCacheAndEvictLru(String bioText, Profile profile) {
+    private synchronized void saveBioToCacheAndEvictLru(String bioText) {
         if (bioText == null || bioText.isBlank()) return;
 
         LocalDateTime now = LocalDateTime.now();
@@ -287,10 +209,6 @@ public class ProfileServiceImpl implements ProfileService {
                 .lastAccessedAt(now)
                 .build();
         bioCacheRepository.save(newEntry);
-
-        // Update profile in DB as well
-        profile.setBio(bioText);
-        profileRepository.save(profile);
 
         // Enforce LRU: keep at most 20 bios
         List<BioCache> allLru = bioCacheRepository.findAllByOrderByLastAccessedAtAsc();

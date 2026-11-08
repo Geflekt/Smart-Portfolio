@@ -7,6 +7,8 @@ public record ExperienceResponse(
     String role,
     String company,
     String period,
+    String startDate,
+    String endDate,
     String description,
     String techStack,
     Integer sortOrder

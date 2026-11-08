@@ -58,50 +58,27 @@ CREATE TABLE IF NOT EXISTS outbox_events (
     event_id VARCHAR(255) UNIQUE
 );
 
-CREATE TABLE IF NOT EXISTS profile (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name VARCHAR(255) NOT NULL,
-    role VARCHAR(255),
-    education VARCHAR(255),
-    bio TEXT,
-    email VARCHAR(255),
-    phone VARCHAR(50),
-    github_url VARCHAR(255),
-    linkedin_url VARCHAR(255),
-    leetcode_url VARCHAR(255),
-    codeforces_url VARCHAR(255),
-    resume_url VARCHAR(500),
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+-- Drop redundant profile table (bio is managed in bio_cache, and profile metadata is served from application constants)
+DROP TABLE IF EXISTS profile CASCADE;
 
 CREATE TABLE IF NOT EXISTS experiences (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     role VARCHAR(255) NOT NULL,
     company VARCHAR(255) NOT NULL,
     period VARCHAR(100),
+    start_date VARCHAR(50),
+    end_date VARCHAR(50),
     description TEXT,
     tech_stack VARCHAR(255),
     sort_order INT DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-INSERT INTO profile (name, role, education, bio, email, phone, github_url, linkedin_url, leetcode_url, codeforces_url, resume_url)
-SELECT 'Ayush Tripathi',
-       'Backend Developer',
-       'B.Tech in CSE @ Gurukul Kangri Deemed to be University',
-       NULL,
-       'ayush.tripathi0509@gmail.com',
-       '+91 8178410657',
-       'https://github.com/fierce-adventurer',
-       'https://www.linkedin.com/in/ayush-tripathi-89265923a/',
-       'https://leetcode.com/u/ayushtripathi2005/',
-       'https://codeforces.com/profile/fierce-adventurer',
-       'https://drive.google.com/file/d/1mkDrr9xYSplGzt3btQkSZnR-FzJvXJgq/view?usp=drive_link'
-WHERE NOT EXISTS (SELECT 1 FROM profile LIMIT 1);
+ALTER TABLE experiences ADD COLUMN IF NOT EXISTS start_date VARCHAR(50);
+ALTER TABLE experiences ADD COLUMN IF NOT EXISTS end_date VARCHAR(50);
 
 -- Purge any previous hardcoded test records
 DELETE FROM experiences WHERE company = 'IIT Ropar' OR role = 'Virtual Software Engineering Intern';
-UPDATE profile SET bio = NULL WHERE bio LIKE 'Experienced in building scalable backend systems%';
 
 -- LRU Bio Cache table (stores up to 20 dynamically generated bios)
 CREATE TABLE IF NOT EXISTS bio_cache (
