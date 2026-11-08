@@ -2,8 +2,10 @@ package com.fierceadventurer.smartportfoliobackend.ai.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fierceadventurer.smartportfoliobackend.content.entity.BioCache;
 import com.fierceadventurer.smartportfoliobackend.content.entity.Experience;
 import com.fierceadventurer.smartportfoliobackend.content.entity.Profile;
+import com.fierceadventurer.smartportfoliobackend.content.repository.BioCacheRepository;
 import com.fierceadventurer.smartportfoliobackend.content.repository.ExperienceRepository;
 import com.fierceadventurer.smartportfoliobackend.content.repository.ProfileRepository;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +31,7 @@ public class DataIngestionServiceImpl implements DataIngestionService {
     private final VectorStore vectorStore;
     private final ChatClient.Builder chatClientBuilder;
     private final ProfileRepository profileRepository;
+    private final BioCacheRepository bioCacheRepository;
     private final ExperienceRepository experienceRepository;
     private final ObjectMapper objectMapper;
     private final CacheManager cacheManager;
@@ -152,7 +155,13 @@ public class DataIngestionServiceImpl implements DataIngestionService {
             if (name != null && !name.isBlank()) profile.setName(name);
             if (role != null && !role.isBlank()) profile.setRole(role);
             if (education != null && !education.isBlank()) profile.setEducation(education);
-            if (bio != null && !bio.isBlank()) profile.setBio(bio);
+            if (bio != null && !bio.isBlank()) {
+                profile.setBio(bio);
+                bioCacheRepository.save(BioCache.builder()
+                        .bio(bio)
+                        .lastAccessedAt(java.time.LocalDateTime.now())
+                        .build());
+            }
 
             profileRepository.save(profile);
             log.info("Saved profile to DB: Name='{}', Role='{}', Bio='{}'", profile.getName(), profile.getRole(), profile.getBio());

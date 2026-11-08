@@ -102,3 +102,13 @@ WHERE NOT EXISTS (SELECT 1 FROM profile LIMIT 1);
 -- Purge any previous hardcoded test records
 DELETE FROM experiences WHERE company = 'IIT Ropar' OR role = 'Virtual Software Engineering Intern';
 UPDATE profile SET bio = NULL WHERE bio LIKE 'Experienced in building scalable backend systems%';
+
+-- LRU Bio Cache table (stores up to 20 dynamically generated bios)
+CREATE TABLE IF NOT EXISTS bio_cache (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    bio TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_accessed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS bio_cache_lru_idx ON bio_cache (last_accessed_at ASC);
