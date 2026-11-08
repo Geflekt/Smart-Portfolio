@@ -68,6 +68,9 @@ spring:
 portfolio:
   frontend-url: ${FRONTEND_URL}
   admin-secret: ${ADMIN_SECRET}
+  github:
+    username: ${GITHUB_USERNAME:fierce-adventurer}
+    token: ${GITHUB_TOKEN:}
   notification:
     discord:
       webhook-url: ${DISCORD_WEBHOOK_URL}

@@ -1,14 +1,7 @@
 CREATE EXTENSION IF NOT EXISTS  vector;
 
-CREATE TABLE IF NOT EXISTS projects (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    title VARCHAR(255) NOT NULL,
-    description TEXT NOT NULL,
-    tech_stack VARCHAR(255),
-    github_url VARCHAR(255),
-    live_url VARCHAR(255),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+-- Obsolete table: Projects are now directly synchronized from the GitHub API
+DROP TABLE IF EXISTS projects;
 
 CREATE TABLE IF NOT EXISTS contact_messages(
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
