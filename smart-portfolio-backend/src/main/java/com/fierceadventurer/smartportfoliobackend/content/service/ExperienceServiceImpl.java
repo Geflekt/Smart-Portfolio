@@ -29,19 +29,6 @@ public class ExperienceServiceImpl implements ExperienceService {
         log.info("Fetching all experiences from database (cache miss)");
         List<Experience> experiences = experienceRepository.findAllByOrderBySortOrderAscCreatedAtDesc();
 
-        if (experiences.isEmpty()) {
-            Experience defaultExp = Experience.builder()
-                    .role("Virtual Software Engineering Intern")
-                    .company("IIT Ropar")
-                    .period("Jan 2026")
-                    .description("Participated in an intensive 10-week virtual internship focusing on full-stack web development.")
-                    .techStack("MongoDB, Express.js, React, Node.js")
-                    .sortOrder(1)
-                    .build();
-            Experience saved = experienceRepository.save(defaultExp);
-            experiences = List.of(saved);
-        }
-
         return experiences.stream()
                 .map(experienceMapper::toResponse)
                 .collect(Collectors.toList());
@@ -65,5 +52,12 @@ public class ExperienceServiceImpl implements ExperienceService {
             return true;
         }
         return false;
+    }
+
+    @Override
+    @CacheEvict(value = "portfolio_experiences", allEntries = true)
+    public void deleteAllExperiences() {
+        log.info("Deleting all experiences from database");
+        experienceRepository.deleteAll();
     }
 }

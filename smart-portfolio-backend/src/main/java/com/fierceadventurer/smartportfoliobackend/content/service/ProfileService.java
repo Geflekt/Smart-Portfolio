@@ -6,4 +6,5 @@ import com.fierceadventurer.smartportfoliobackend.content.dto.ProfileResponse;
 public interface ProfileService {
     ProfileResponse getProfile();
     ProfileResponse updateProfile(ProfileRequest request);
+    ProfileResponse generateBioWithAi();
 }

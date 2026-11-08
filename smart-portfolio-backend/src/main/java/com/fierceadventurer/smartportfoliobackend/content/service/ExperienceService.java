@@ -10,4 +10,5 @@ public interface ExperienceService {
     List<ExperienceResponse> getAllExperiences();
     ExperienceResponse createExperience(ExperienceRequest request);
     boolean deleteExperience(UUID id);
+    void deleteAllExperiences();
 }

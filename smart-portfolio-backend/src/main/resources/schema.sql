@@ -89,7 +89,7 @@ INSERT INTO profile (name, role, education, bio, email, phone, github_url, linke
 SELECT 'Ayush Tripathi',
        'Backend Developer',
        'B.Tech in CSE @ Gurukul Kangri Deemed to be University',
-       'Experienced in building scalable backend systems and event-driven architectures. My core stack includes Java, Spring Boot, Microservices, Kafka, and Docker.' || E'\n\n' || 'Currently seeking hands-on internship opportunities to engineer robust solutions.',
+       NULL,
        'ayush.tripathi0509@gmail.com',
        '+91 8178410657',
        'https://github.com/fierce-adventurer',
@@ -99,11 +99,6 @@ SELECT 'Ayush Tripathi',
        'https://drive.google.com/file/d/1mkDrr9xYSplGzt3btQkSZnR-FzJvXJgq/view?usp=drive_link'
 WHERE NOT EXISTS (SELECT 1 FROM profile LIMIT 1);
 
-INSERT INTO experiences (role, company, period, description, tech_stack, sort_order)
-SELECT 'Virtual Software Engineering Intern',
-       'IIT Ropar',
-       'Jan 2026',
-       'Participated in an intensive 10-week virtual internship focusing on full-stack web development.',
-       'MongoDB, Express.js, React, Node.js',
-       1
-WHERE NOT EXISTS (SELECT 1 FROM experiences LIMIT 1);
+-- Purge any previous hardcoded test records
+DELETE FROM experiences WHERE company = 'IIT Ropar' OR role = 'Virtual Software Engineering Intern';
+UPDATE profile SET bio = NULL WHERE bio LIKE 'Experienced in building scalable backend systems%';

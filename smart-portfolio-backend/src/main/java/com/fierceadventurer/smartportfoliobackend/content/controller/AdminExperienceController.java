@@ -35,4 +35,11 @@ public class AdminExperienceController {
         }
         return ResponseEntity.ok("Experience successfully deleted.");
     }
+
+    @DeleteMapping
+    public ResponseEntity<String> deleteAllExperiences() {
+        log.info("Admin deleting all experiences");
+        experienceService.deleteAllExperiences();
+        return ResponseEntity.ok("All experiences successfully deleted.");
+    }
 }

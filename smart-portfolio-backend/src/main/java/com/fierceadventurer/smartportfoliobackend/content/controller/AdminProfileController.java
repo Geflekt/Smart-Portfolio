@@ -6,6 +6,7 @@ import com.fierceadventurer.smartportfoliobackend.content.service.ProfileService
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -21,5 +22,10 @@ public class AdminProfileController {
     @PutMapping
     public ResponseEntity<ProfileResponse> updateProfile(@Valid @RequestBody ProfileRequest request) {
         return ResponseEntity.ok(profileService.updateProfile(request));
+    }
+
+    @PostMapping("/generate-bio")
+    public ResponseEntity<ProfileResponse> generateBioWithAi() {
+        return ResponseEntity.ok(profileService.generateBioWithAi());
     }
 }
