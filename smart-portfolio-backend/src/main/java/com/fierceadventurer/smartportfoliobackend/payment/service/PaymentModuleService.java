@@ -17,6 +17,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
+import org.springframework.context.ApplicationEventPublisher;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -24,6 +26,7 @@ public class PaymentModuleService {
 
     private final JdbcClient jdbcClient;
     private final ObjectMapper objectMapper;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Value("${razorpay.key-id}")
     private String razorpayKeyId;
@@ -106,7 +109,7 @@ public class PaymentModuleService {
             // save to outbox events table (JSONB cast is critical for Postgres)
             String insertOutboxSql = """
                 INSERT INTO outbox_events(id , aggregate_type, aggregate_id, event_type, payload, is_processed, event_id)
-                VALUES (?, 'SPONSOR', ?, 'SPONSOR_CREATED', ?::jsonb, false, ?)
+                VALUES (?, 'SPONSOR', ?, 'SPONSOR_CREATED', ?::jsonb, true, ?)
                 """;
 
             jdbcClient.sql(insertOutboxSql)
@@ -116,7 +119,9 @@ public class PaymentModuleService {
                     .param(razorpayEventId)
                     .update();
 
-            log.info("Successfully committed Sponsor and OutboxEvent to PostgreSQL.");
+            // Publish event directly on event bus without waiting for any background polling scheduler
+            eventPublisher.publishEvent(new com.fierceadventurer.smartportfoliobackend.payment.event.SponsorPaidEvent(payloadJson));
+            log.info("Successfully committed Sponsor and dispatched OutboxEvent.");
         } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
             log.error("Failed to serialize sponsor payload for outbox", e);
             throw new RuntimeException("Internal error processing sponsorship data");

@@ -20,8 +20,8 @@ public class OutboxPollingWorker {
     private final JdbcClient jdbcClient;
     private final ApplicationEventPublisher eventPublisher;
 
-    // Delay initial run by 3 minutes to avoid waking DB on application startup
-    @Scheduled(initialDelay = 180000, fixedDelay = 600000000)
+    // Process pending events on-demand without any @Scheduled background timer
+    // This allows Neon serverless database to enter true cold-start (scale to zero) when idle
     public void pollAndProcessOutboxEvents(){
 
         //fetch up to 50 unproccessed events
