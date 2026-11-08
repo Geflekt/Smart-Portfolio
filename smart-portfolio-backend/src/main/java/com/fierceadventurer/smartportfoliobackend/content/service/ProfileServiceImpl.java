@@ -220,7 +220,9 @@ public class ProfileServiceImpl implements ProfileService {
         }
 
         if (dynamicBio == null || dynamicBio.isBlank()) {
-            dynamicBio = "Experienced in building scalable backend systems and event-driven architectures. My core stack includes Java, Spring Boot, Microservices, Kafka, and Docker.\n\nCurrently seeking hands-on internship opportunities to engineer robust solutions.";
+            dynamicBio = (profile.getBio() != null && !profile.getBio().isBlank())
+                    ? profile.getBio()
+                    : "";
         }
 
         return Map.of(
