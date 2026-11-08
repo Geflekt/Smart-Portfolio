@@ -2,10 +2,10 @@ package com.fierceadventurer.smartportfoliobackend.ai.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fierceadventurer.smartportfoliobackend.content.dto.ProfileRequest;
 import com.fierceadventurer.smartportfoliobackend.content.entity.Experience;
+import com.fierceadventurer.smartportfoliobackend.content.entity.Profile;
 import com.fierceadventurer.smartportfoliobackend.content.repository.ExperienceRepository;
-import com.fierceadventurer.smartportfoliobackend.content.service.ProfileService;
+import com.fierceadventurer.smartportfoliobackend.content.repository.ProfileRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
@@ -28,7 +28,7 @@ public class DataIngestionServiceImpl implements DataIngestionService {
 
     private final VectorStore vectorStore;
     private final ChatClient.Builder chatClientBuilder;
-    private final ProfileService profileService;
+    private final ProfileRepository profileRepository;
     private final ExperienceRepository experienceRepository;
     private final ObjectMapper objectMapper;
     private final CacheManager cacheManager;
@@ -65,6 +65,9 @@ public class DataIngestionServiceImpl implements DataIngestionService {
     }
 
     private void parseAndSaveResumeWithLlm(String resumeText) {
+        ChatClient chatClient = chatClientBuilder.build();
+        String candidateName = "Ayush Tripathi";
+
         try {
             log.info("Sending resume text to LLM (Groq Llama-3) for automated bio & experience extraction...");
 
@@ -91,67 +94,121 @@ public class DataIngestionServiceImpl implements DataIngestionService {
                     RESUME TEXT:
                     """ + resumeText;
 
-            ChatClient chatClient = chatClientBuilder.build();
             String rawResponse = chatClient.prompt().user(prompt).call().content();
 
-            if (rawResponse == null || rawResponse.isBlank()) {
-                log.warn("LLM returned empty response for resume parsing.");
-                return;
-            }
+            String name = "Ayush Tripathi";
+            String role = "Backend Developer";
+            String education = "";
+            String bio = "";
 
-            // Strip code fences if LLM wrapped output in ```json ... ```
-            String cleanedJson = rawResponse.trim();
-            if (cleanedJson.startsWith("```json")) {
-                cleanedJson = cleanedJson.substring(7);
-            } else if (cleanedJson.startsWith("```")) {
-                cleanedJson = cleanedJson.substring(3);
-            }
-            if (cleanedJson.endsWith("```")) {
-                cleanedJson = cleanedJson.substring(0, cleanedJson.length() - 3);
-            }
-            cleanedJson = cleanedJson.trim();
-
-            JsonNode root = objectMapper.readTree(cleanedJson);
-
-            // Update Profile Bio in PostgreSQL
-            String name = root.path("name").asText("Ayush Tripathi");
-            String role = root.path("role").asText("Backend Developer");
-            String education = root.path("education").asText("");
-            String bio = root.path("bio").asText("");
-
-            ProfileRequest profileReq = new ProfileRequest(name, role, education, bio, null, null, null, null, null, null, null);
-            profileService.updateProfile(profileReq);
-            log.info("Updated profile from LLM extraction: Name='{}', Role='{}'", name, role);
-
-            // Update Work Experiences in PostgreSQL
-            JsonNode experiencesNode = root.path("experiences");
-            if (experiencesNode.isArray() && experiencesNode.size() > 0) {
-                experienceRepository.deleteAll();
-                int order = 1;
-                for (JsonNode expNode : experiencesNode) {
-                    Experience exp = Experience.builder()
-                            .role(expNode.path("role").asText())
-                            .company(expNode.path("company").asText())
-                            .period(expNode.path("period").asText())
-                            .description(expNode.path("description").asText())
-                            .techStack(expNode.path("techStack").asText())
-                            .sortOrder(order++)
-                            .build();
-                    experienceRepository.save(exp);
+            if (rawResponse != null && !rawResponse.isBlank()) {
+                String cleanedJson = rawResponse.trim();
+                int firstBrace = cleanedJson.indexOf('{');
+                int lastBrace = cleanedJson.lastIndexOf('}');
+                if (firstBrace != -1 && lastBrace != -1 && lastBrace > firstBrace) {
+                    cleanedJson = cleanedJson.substring(firstBrace, lastBrace + 1);
                 }
-                log.info("Saved {} work experiences extracted by LLM from resume.", experiencesNode.size());
+
+                try {
+                    JsonNode root = objectMapper.readTree(cleanedJson);
+                    name = root.path("name").asText(name);
+                    role = root.path("role").asText(role);
+                    education = root.path("education").asText(education);
+                    bio = root.path("bio").asText(bio);
+                    candidateName = name;
+
+                    // Update Work Experiences in PostgreSQL
+                    JsonNode experiencesNode = root.path("experiences");
+                    if (experiencesNode.isArray() && experiencesNode.size() > 0) {
+                        experienceRepository.deleteAll();
+                        int order = 1;
+                        for (JsonNode expNode : experiencesNode) {
+                            Experience exp = Experience.builder()
+                                    .role(expNode.path("role").asText())
+                                    .company(expNode.path("company").asText())
+                                    .period(expNode.path("period").asText())
+                                    .description(expNode.path("description").asText())
+                                    .techStack(expNode.path("techStack").asText())
+                                    .sortOrder(order++)
+                                    .build();
+                            experienceRepository.save(exp);
+                        }
+                        log.info("Saved {} work experiences extracted by LLM from resume.", experiencesNode.size());
+                    }
+                } catch (Exception parseEx) {
+                    log.warn("Failed to parse JSON tree from LLM response, will generate direct bio: {}", parseEx.getMessage());
+                }
             }
+
+            // If bio was blank or missing, generate dedicated terminal bio
+            if (bio == null || bio.isBlank()) {
+                bio = generateTerminalBioWithLlm(resumeText, candidateName, chatClient);
+            }
+
+            // Save to Profile in PostgreSQL
+            Profile profile = profileRepository.findFirstByOrderByIdAsc()
+                    .orElseGet(() -> Profile.builder().name("Ayush Tripathi").role("Backend Developer").build());
+
+            if (name != null && !name.isBlank()) profile.setName(name);
+            if (role != null && !role.isBlank()) profile.setRole(role);
+            if (education != null && !education.isBlank()) profile.setEducation(education);
+            if (bio != null && !bio.isBlank()) profile.setBio(bio);
+
+            profileRepository.save(profile);
+            log.info("Saved profile to DB: Name='{}', Role='{}', Bio='{}'", profile.getName(), profile.getRole(), profile.getBio());
 
             // Evict caches so frontend immediately sees the newly parsed data
-            if (cacheManager.getCache("portfolio_profile") != null) {
-                cacheManager.getCache("portfolio_profile").clear();
-            }
-            if (cacheManager.getCache("portfolio_experiences") != null) {
-                cacheManager.getCache("portfolio_experiences").clear();
-            }
+            evictCaches();
 
         } catch (Exception e) {
-            log.error("Failed to parse resume with LLM, pgvector chunking still succeeded.", e);
+            log.error("Failed to parse experiences from resume with LLM, attempting direct bio synthesis fallback...", e);
+            try {
+                String fallbackBio = generateTerminalBioWithLlm(resumeText, candidateName, chatClient);
+                if (fallbackBio != null && !fallbackBio.isBlank()) {
+                    Profile profile = profileRepository.findFirstByOrderByIdAsc()
+                            .orElseGet(() -> Profile.builder().name("Ayush Tripathi").role("Backend Developer").build());
+                    profile.setBio(fallbackBio);
+                    profileRepository.save(profile);
+                    evictCaches();
+                    log.info("Fallback bio saved: {}", fallbackBio);
+                }
+            } catch (Exception ex) {
+                log.error("Direct bio generation fallback failed: {}", ex.getMessage());
+            }
+        }
+    }
+
+    private String generateTerminalBioWithLlm(String resumeText, String candidateName, ChatClient chatClient) {
+        String excerpt = resumeText.length() > 3500 ? resumeText.substring(0, 3500) : resumeText;
+        String bioPrompt = """
+                You are a senior technical writer crafting a high-impact terminal bio for %s based on their resume.
+
+                RESUME:
+                %s
+
+                CRITICAL INSTRUCTIONS:
+                - Write a concise, compelling 2-3 sentence terminal bio summarizing engineering mindset, core backend stack (Java, Spring Boot, Microservices, Kafka, Docker, PostgreSQL), and distributed systems skills.
+                - Format specifically for an interactive developer terminal.
+                - Return ONLY the raw bio text. Do NOT include greetings, quotation marks, markdown code fences, or any other commentary.
+                """.formatted(candidateName, excerpt);
+
+        try {
+            String bio = chatClient.prompt().user(bioPrompt).call().content();
+            if (bio != null && !bio.isBlank()) {
+                return bio.trim().replaceAll("^\"|\"$", "").replace("```", "").trim();
+            }
+        } catch (Exception e) {
+            log.error("Direct terminal bio generation failed: {}", e.getMessage());
+        }
+        return null;
+    }
+
+    private void evictCaches() {
+        if (cacheManager.getCache("portfolio_profile") != null) {
+            cacheManager.getCache("portfolio_profile").clear();
+        }
+        if (cacheManager.getCache("portfolio_experiences") != null) {
+            cacheManager.getCache("portfolio_experiences").clear();
         }
     }
 }

@@ -209,20 +209,25 @@ public class ProfileServiceImpl implements ProfileService {
                     .call()
                     .content();
 
-            if (dynamicBio != null) {
+            if (dynamicBio != null && !dynamicBio.isBlank()) {
                 dynamicBio = dynamicBio.trim()
                         .replaceAll("^\"|\"$", "")
                         .replace("```", "")
                         .trim();
+                profile.setBio(dynamicBio);
+                profileRepository.save(profile);
             }
         } catch (Exception e) {
             log.error("Failed to generate dynamic bio via Groq LLM", e);
         }
 
         if (dynamicBio == null || dynamicBio.isBlank()) {
-            dynamicBio = (profile.getBio() != null && !profile.getBio().isBlank())
-                    ? profile.getBio()
-                    : "";
+            if (profile.getBio() != null && !profile.getBio().isBlank()) {
+                dynamicBio = profile.getBio();
+            } else {
+                ProfileResponse aiProfile = generateBioWithAi();
+                dynamicBio = aiProfile.bio() != null ? aiProfile.bio() : "";
+            }
         }
 
         return Map.of(

@@ -1,27 +1,39 @@
 package com.fierceadventurer.smartportfoliobackend.content.controller;
 
+import com.fierceadventurer.smartportfoliobackend.content.dto.ProjectRequest;
 import com.fierceadventurer.smartportfoliobackend.content.dto.ProjectResponse;
 import com.fierceadventurer.smartportfoliobackend.content.service.ProjectService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
+import java.util.UUID;
 
 @Slf4j
 @RestController
-@RequestMapping("/api/admin/projects") // Secured by Interceptor!
+@RequestMapping("/api/admin/projects")
 @RequiredArgsConstructor
 public class AdminProjectController {
 
     private final ProjectService projectService;
 
-    @PostMapping("/sync")
-    public ResponseEntity<List<ProjectResponse>> syncProjects() {
-        log.info("Admin triggered manual GitHub projects synchronization");
-        return ResponseEntity.ok(projectService.syncProjectsFromGitHub());
+    @PostMapping
+    public ResponseEntity<ProjectResponse> createProject(@Valid @RequestBody ProjectRequest request) {
+        log.info("Admin creating new project: {}", request.title());
+        ProjectResponse response = projectService.createProject(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<String> deleteProject(@PathVariable UUID id) {
+        log.info("Admin deleting project ID: {}", id);
+        boolean deleted = projectService.deleteProject(id);
+        if (!deleted) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Project not found.");
+        }
+        return ResponseEntity.ok("Project successfully deleted.");
     }
 }
